@@ -22,7 +22,7 @@ public class UserServiceImpl implements UserService {
 
         userRepository.findAll().forEach(users::add);
         for (User user: users) {
-            System.out.println(user.login + ", " + user.password);
+            System.out.println(user.login + ", " + user.password + "!!!");
         }
         return users;
     }
