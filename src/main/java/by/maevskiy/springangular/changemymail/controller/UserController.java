@@ -1,9 +1,9 @@
 package by.maevskiy.springangular.changemymail.controller;
 
 import by.maevskiy.springangular.changemymail.domain.User;
+import by.maevskiy.springangular.changemymail.service.MailService;
 import by.maevskiy.springangular.changemymail.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
