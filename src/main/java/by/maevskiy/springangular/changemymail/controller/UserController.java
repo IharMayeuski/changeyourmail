@@ -30,6 +30,7 @@ public class UserController {
 
     @GetMapping(value = "/users")
     public List<User> findAll() {
+        System.out.println("!");
         return userService.findAll();
 //        return "UserList";
     }
