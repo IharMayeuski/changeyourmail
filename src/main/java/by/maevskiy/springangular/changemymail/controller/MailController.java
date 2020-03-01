@@ -20,7 +20,7 @@ public class MailController {
     }
 
     @GetMapping(value = "/folders")
-    public List<Folder> findAll() {
+    public List<String> findAll() {
         return mailService.getAllFolders("maevskij.i@gmail.com", "Ii98729872gmail", "imap");
     }
 }
