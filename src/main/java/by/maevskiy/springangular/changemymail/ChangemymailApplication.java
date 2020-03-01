@@ -13,10 +13,10 @@ public class ChangemymailApplication {
         SpringApplication.run(ChangemymailApplication.class, args);
     }
 
-    @Bean
-    CommandLineRunner init(UserRepository userRepository) {
-        return args -> {
-            userRepository.findAll().forEach(System.out::println);
-        };
-    }
+//    @Bean
+//    CommandLineRunner init(UserRepository userRepository) {
+//        return args -> {
+//            userRepository.findAll().forEach(System.out::println);
+//        };
+//    }
 }

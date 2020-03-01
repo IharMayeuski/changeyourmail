@@ -1,5 +1,6 @@
 package by.maevskiy.springangular.changemymail.controller;
 
+import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
 import by.maevskiy.springangular.changemymail.service.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -20,7 +21,9 @@ public class MailController {
     }
 
     @GetMapping(value = "/folders")
-    public List<String> findAll() {
-        return mailService.getAllFolders("maevskij.i@gmail.com", "Ii98729872gmail", "imap");
+    public List<MailFolder> findAll() {
+        String mail = "*";
+        String password = "*";
+        return mailService.getAllFolders(mail, password, "imap");
     }
 }
