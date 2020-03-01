@@ -9,7 +9,7 @@ import java.util.*;
 @Service
 public class MailServiceImpl implements MailService {
     @Override
-    public List<Folder> getAllFolders(String email, String password, String protocol) {
+    public List<String> getAllFolders(String email, String password, String protocol) {
         HostPortInfo hostPortInfo = getHostPortInfo(email, protocol);
         Properties properties = getServerProperties(protocol, hostPortInfo);
         Session session = Session.getDefaultInstance(properties);
@@ -17,7 +17,11 @@ public class MailServiceImpl implements MailService {
             Store store = session.getStore(protocol);
             store.connect(email, password);
             Folder[] folders = store.getDefaultFolder().list();
-            return Arrays.asList(folders);
+            List <String> myFolders = new ArrayList<>();
+            for (Folder folder: folders) {
+                myFolders.add(folder.getName());
+            }
+            return myFolders;
         } catch (NoSuchProviderException ex) {
             System.out.println("No provider for protocol: " + protocol);
         } catch (MessagingException ex) {
