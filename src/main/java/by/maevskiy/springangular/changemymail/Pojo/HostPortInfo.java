@@ -4,7 +4,6 @@ import lombok.Data;
 import lombok.Setter;
 
 @Data
-@Setter
 public class HostPortInfo {
     public String host;
     public String sslTrust;

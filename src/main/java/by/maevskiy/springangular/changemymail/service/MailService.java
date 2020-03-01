@@ -1,8 +1,9 @@
 package by.maevskiy.springangular.changemymail.service;
 
-import javax.mail.Folder;
+import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
+
 import java.util.List;
 
 public interface MailService {
-    List<String> getAllFolders(String userName, String password, String protocol);
+    List<MailFolder> getAllFolders(String userName, String password, String protocol);
 }
