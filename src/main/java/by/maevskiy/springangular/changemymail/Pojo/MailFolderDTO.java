@@ -7,7 +7,7 @@ import javax.mail.Folder;
 
 @Data
 @AllArgsConstructor
-public class MailFolder {
-    public Folder folder;
+public class MailFolderDTO {
+    public String name;
     public Integer mailQuantity;
 }
