@@ -6,6 +6,7 @@ import by.maevskiy.springangular.changemymail.service.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.mail.Message;
 import java.util.List;
 import java.util.Map;
 
@@ -20,9 +21,17 @@ public class SearchController {
     }
 
     @PostMapping(value = "/search")
-    public void saveFilesFromMail(@RequestBody String cv) {
-        int s = 5;
+    public void saveFilesFromMail(@RequestBody Map<String, String> namePassText) {
+        List<MailFolder> mailFolders = mailService.getAllFolders(
+                namePassText.get("name"),
+                namePassText.get("pass"),
+                "imap"
+        );
+        List<Message> messages = mailService.getAllMessages(mailFolders);
+        String fileNamePattern = namePassText.get("search");
+        String destFilePath = "C:/Users/Maevskiy/Desktop/files/";
+        mailService.saveFile(messages, destFilePath, fileNamePattern);
 
-        System.out.println(cv);
+
     }
 }
