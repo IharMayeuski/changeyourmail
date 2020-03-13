@@ -2,6 +2,7 @@ package by.maevskiy.springangular.changemymail.service;
 
 import by.maevskiy.springangular.changemymail.Pojo.HostPortInfo;
 import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
+import by.maevskiy.springangular.changemymail.Pojo.SessionStoreFolder;
 import org.springframework.stereotype.Service;
 
 import javax.mail.*;
@@ -21,21 +22,18 @@ import static java.util.Objects.nonNull;
 @Service
 public class MailServiceImpl implements MailService {
     @Override
-    public List<MailFolder> getAllFolders(String email, String password, String protocol) {
-        HostPortInfo hostPortInfo = getHostPortInfo(email, protocol);
-        Properties properties = getServerProperties(protocol, hostPortInfo);
-        Session session = Session.getDefaultInstance(properties);
+    public List<MailFolder> getAllFolders(Store store) {
         Folder[] folders;
         try {
-            Store store = session.getStore(protocol);
-            store.connect(email, password);
             folders = store.getDefaultFolder().list();
-            for (Folder folder: folders) {
-                folder.open(Folder.READ_WRITE);
+            for (Folder folder : folders) {
+                try {
+                    folder.open(Folder.READ_WRITE);
+                } catch (MessagingException e) {
+                    System.out.println("MessageException");
+                }
             }
             return getMailFolders(folders);
-        } catch (NoSuchProviderException ex) {
-            System.out.println("No provider for protocol: " + protocol);
         } catch (MessagingException ex) {
             System.out.println("Could not connect to the message store");
         }
@@ -48,10 +46,12 @@ public class MailServiceImpl implements MailService {
         for (MailFolder mailFolder: folders) {
             try {
                 Message[] messageArray = (mailFolder.getFolder().getMessages());
-                List <Message> messageList = Arrays.stream(messageArray).collect(Collectors.toList());
-                messages.addAll(messageList);
-            } catch (MessagingException e) {
-                e.printStackTrace();
+                if (messageArray.length > 0) {
+                    List<Message> messageList = Arrays.stream(messageArray).collect(Collectors.toList());
+                    messages.addAll(messageList);
+                }
+            } catch (Exception e) {
+                System.out.println("MessageException");
             }
         }
         return messages;
@@ -75,6 +75,48 @@ public class MailServiceImpl implements MailService {
                 System.out.println("Could not connect to the message store");
             } catch (IOException e) {
                 System.out.println("IOException");
+            }
+        }
+    }
+
+    @Override
+    public Session getSession(String email, String protocol) {
+        HostPortInfo hostPortInfo = getHostPortInfo(email, protocol);
+        Properties properties = getServerProperties(protocol, hostPortInfo);
+        return Session.getDefaultInstance(properties);
+    }
+
+    @Override
+    public Store getStore(Session session, String email, String password, String protocol) {
+        try {
+            Store store = session.getStore(protocol);
+            store.connect(email, password);
+            return store;
+        } catch (NoSuchProviderException e) {
+            e.printStackTrace();
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
+    public void closeSessionStoreFolder(Session session, Store store, List<MailFolder> mailFolders) {
+        for (MailFolder folder : mailFolders) {
+            if (nonNull(folder.getFolder())) {
+                try {
+                    folder.getFolder().close(true);
+                } catch (Exception e) {
+                    System.out.println("Could not close folder/store");
+                }
+            }
+        }
+        if (nonNull(store)) {
+            try {
+                store.close();
+            } catch (MessagingException e) {
+                System.out.println("Could not close folder/store");
+
             }
         }
     }
@@ -120,16 +162,18 @@ public class MailServiceImpl implements MailService {
     private List<MailFolder> getMailFolders(Folder[] folders) {
         List<MailFolder> myFolders = new ArrayList<>();
         for (Folder folder : folders) {
-            Integer messageCount;
-            try {
-                messageCount = folder.getMessageCount();
-            } catch (MessagingException e) {
-                messageCount = null;
-            }
-            if (nonNull(messageCount) && messageCount < 0) {
-                messageCount = null;
-            }
-            myFolders.add(new MailFolder(folder, messageCount));
+//            if (folder.getName().equals("INBOX")) { // FIXME: 3/13/2020
+                Integer messageCount;
+                try {
+                    messageCount = folder.getMessageCount();
+                } catch (MessagingException e) {
+                    messageCount = null;
+                }
+                if (nonNull(messageCount) && messageCount < 0) {
+                    messageCount = null;
+                }
+                myFolders.add(new MailFolder(folder, messageCount));
+//            }
         }
         return myFolders;
     }
@@ -172,7 +216,7 @@ public class MailServiceImpl implements MailService {
     }
 
     private boolean checkFileName(String fileName, String namePattern) {
-        if (namePattern.trim().isEmpty()) {
+        if (isNull(namePattern) || namePattern.trim().isEmpty()) {
             return true;
         }
         return fileName.contains(namePattern);
