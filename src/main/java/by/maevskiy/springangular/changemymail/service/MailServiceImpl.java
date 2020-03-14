@@ -13,6 +13,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static by.maevskiy.springangular.changemymail.util.Constant.hosts;
@@ -119,6 +121,23 @@ public class MailServiceImpl implements MailService {
 
             }
         }
+    }
+
+    @Override
+    public String converPath(String path) {
+        String strRegex = "\\\\";
+        String strReplacement = "/";
+        Pattern p = Pattern.compile(strRegex);
+        Matcher m = p.matcher(path);
+        String tempPath = m.replaceAll(strReplacement);
+
+        Pattern deletePartPath = Pattern.compile(".+/");
+        Matcher deletePathMatcher = deletePartPath.matcher(tempPath);
+        while (deletePathMatcher.find()){
+            return (deletePathMatcher.group());
+        }
+        return tempPath;
+
     }
 
     private HostPortInfo getHostPortInfo(String userName, String protocol) {

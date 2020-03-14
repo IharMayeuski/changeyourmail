@@ -19,4 +19,6 @@ public interface MailService {
     Store getStore(Session session, String email, String password, String protocol);
 
     void closeSessionStoreFolder(Session session, Store store, List<MailFolder> mailFolders);
+
+    String converPath(String path);
 }

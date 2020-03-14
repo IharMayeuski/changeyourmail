@@ -28,10 +28,10 @@ public class SearchController {
 //        final String PROTOCOL = "pop3";
         final String PROTOCOL = "imap";
 
-        String fileNamePattern = namePassText.get("search");
-        String destFilePath = "C:/Users/Maevskiy/Desktop/files/";
         String email = namePassText.get("name");
         String password =  namePassText.get("pass");
+        String destFilePath = mailService.converPath(namePassText.get("path"));
+        String fileNamePattern = namePassText.get("search");
 
         Session session = mailService.getSession(email, PROTOCOL);
         Store store = mailService.getStore(session, email, password, PROTOCOL);
