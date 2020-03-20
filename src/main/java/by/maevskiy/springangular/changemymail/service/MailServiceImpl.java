@@ -8,10 +8,9 @@ import org.springframework.stereotype.Service;
 import javax.mail.*;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.MimeBodyPart;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -60,14 +59,11 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public void saveFile(List<Message> messages, String filePath, String fileNamePattern) {
+    public void saveFile(List<Message> messages, String filePath, String fileNamePattern, String action) {
         for (Message msg : messages) {
             try {
-                // TODO: 2/17/2020 Удаление письма, установка флага
-//                msg.setFlag(Flags.Flag.DELETED, true);
-                String contentType = msg.getContentType();
-                if (contentType.contains("multipart")) {
-                    safeFileOnLaptop((Multipart) msg.getContent(), filePath, fileNamePattern);
+                if (msg.getContentType().contains("multipart")) {
+                    safeFileOnLaptop(msg, filePath, fileNamePattern, action);
                 }
             } catch (AddressException e) {
                 e.printStackTrace();
@@ -75,9 +71,16 @@ public class MailServiceImpl implements MailService {
                 System.out.println("No provider for protocol");
             } catch (MessagingException ex) {
                 System.out.println("Could not connect to the message store");
-            } catch (IOException e) {
-                System.out.println("IOException");
             }
+        }
+    }
+
+    private void setFlag(Message message, String action) throws MessagingException {
+        if (action.equals("delete") || action.equals("basket")) {
+            message.setFlag(Flags.Flag.DELETED, true);
+        }
+        if (action.equals("read")) {
+            message.setFlag(Flags.Flag.SEEN, true);
         }
     }
 
@@ -118,26 +121,17 @@ public class MailServiceImpl implements MailService {
                 store.close();
             } catch (MessagingException e) {
                 System.out.println("Could not close folder/store");
-
             }
         }
     }
 
     @Override
-    public String converPath(String path) {
-        String strRegex = "\\\\";
-        String strReplacement = "/";
-        Pattern p = Pattern.compile(strRegex);
-        Matcher m = p.matcher(path);
-        String tempPath = m.replaceAll(strReplacement);
-
-        Pattern deletePartPath = Pattern.compile(".+/");
-        Matcher deletePathMatcher = deletePartPath.matcher(tempPath);
-        while (deletePathMatcher.find()){
-            return (deletePathMatcher.group());
+    public String getProtocol(String action) {
+        if (action.equals("delete")) {
+            return "pop3";
+        } else {
+            return "imap";
         }
-        return tempPath;
-
     }
 
     private HostPortInfo getHostPortInfo(String userName, String protocol) {
@@ -197,24 +191,24 @@ public class MailServiceImpl implements MailService {
         return myFolders;
     }
 
-    private void safeFileOnLaptop(Multipart multiPart, String filePath, String namePattern) {
+    private void safeFileOnLaptop(Message msg, String filePath, String namePattern, String action) {
         try {
+            Multipart multiPart = (Multipart) msg.getContent();
             for (int j = 0; j < multiPart.getCount(); j++) {
                 MimeBodyPart part = (MimeBodyPart) multiPart.getBodyPart(j);
-                    if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) {
-                        String fileName = part.getFileName().split("@")[0];
+                if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) {
+                    String fileName = part.getFileName().split("@")[0];
                     if (checkFileName(fileName, namePattern)) {
-                        saveFileOnDisk(part, filePath + fileName);
+                        saveFileOnDisk(part, filePath + fileName, msg, action);
                     }
                 }
             }
-        } catch (MessagingException e) {
+        } catch (MessagingException | IOException e) {
             e.printStackTrace();
-
         }
     }
 
-    private void saveFileOnDisk(MimeBodyPart part, String destFilePath) {
+    private void saveFileOnDisk(MimeBodyPart part, String destFilePath, Message msg, String action) {
         try {
             FileOutputStream output = new FileOutputStream(destFilePath);
             InputStream input = part.getInputStream();
@@ -223,10 +217,10 @@ public class MailServiceImpl implements MailService {
             while ((byteRead = input.read(buffer)) != -1) {
                 output.write(buffer, 0, byteRead);
             }
+            setFlag(msg, action);
             output.close();
         } catch (MessagingException e) {
             e.printStackTrace();
-
         } catch (FileNotFoundException e) {
             System.out.println("FileNotFoundException");
         } catch (IOException e) {

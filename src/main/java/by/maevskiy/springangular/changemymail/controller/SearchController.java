@@ -1,7 +1,6 @@
 package by.maevskiy.springangular.changemymail.controller;
 
 import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
-import by.maevskiy.springangular.changemymail.Pojo.SessionStoreFolder;
 import by.maevskiy.springangular.changemymail.service.MailService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,21 +24,20 @@ public class SearchController {
 
     @PostMapping(value = "/search")
     public void saveFilesFromMail(@RequestBody Map<String, String> namePassText) {
-//        final String PROTOCOL = "pop3";
-        final String PROTOCOL = "imap";
-
         String email = namePassText.get("name");
         String password =  namePassText.get("pass");
-        String destFilePath = mailService.converPath(namePassText.get("path"));
+        String action =  namePassText.get("deleteTo");
+        String destFilePath = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\";
         String fileNamePattern = namePassText.get("search");
+        String protocol = mailService.getProtocol(action);
 
-        Session session = mailService.getSession(email, PROTOCOL);
-        Store store = mailService.getStore(session, email, password, PROTOCOL);
+        Session session = mailService.getSession(email, protocol);
+        Store store = mailService.getStore(session, email, password, protocol);
 
         List<MailFolder> mailFolders = mailService.getAllFolders(store);
         List<Message> messages = mailService.getAllMessages(mailFolders);
 
-        mailService.saveFile(messages, destFilePath, fileNamePattern);
+        mailService.saveFile(messages, destFilePath, fileNamePattern, action);
 
         mailService.closeSessionStoreFolder(session, store, mailFolders);
 
