@@ -12,7 +12,7 @@ public interface MailService {
 
     List <Message> getAllMessages(List<MailFolder> folders);
 
-    void saveFile(List<Message> messages, String filePath, String fileNamePattern);
+    void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move);
 
     Session getSession(String email, String protocol);
 
@@ -20,5 +20,5 @@ public interface MailService {
 
     void closeSessionStoreFolder(Session session, Store store, List<MailFolder> mailFolders);
 
-    String converPath(String path);
+    String getProtocol(String action);
 }
