@@ -27,22 +27,16 @@ public class SearchController {
         String email = namePassText.get("name");
         String password =  namePassText.get("pass");
         String action =  namePassText.get("deleteTo");
+        String moveTo =  namePassText.get("move");
         String destFilePath = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\";
         String fileNamePattern = namePassText.get("search");
-        String protocol = mailService.getProtocol(action);
 
+        String protocol = mailService.getProtocol(action);
         Session session = mailService.getSession(email, protocol);
         Store store = mailService.getStore(session, email, password, protocol);
-
         List<MailFolder> mailFolders = mailService.getAllFolders(store);
         List<Message> messages = mailService.getAllMessages(mailFolders);
-
-        mailService.saveFile(messages, destFilePath, fileNamePattern, action);
-
+        mailService.saveFiles(messages, destFilePath, fileNamePattern, action, moveTo);
         mailService.closeSessionStoreFolder(session, store, mailFolders);
-
-        System.out.println("All is finished");
-
-
     }
 }

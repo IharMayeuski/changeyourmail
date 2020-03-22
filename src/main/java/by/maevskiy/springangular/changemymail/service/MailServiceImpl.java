@@ -2,18 +2,28 @@ package by.maevskiy.springangular.changemymail.service;
 
 import by.maevskiy.springangular.changemymail.Pojo.HostPortInfo;
 import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
-import by.maevskiy.springangular.changemymail.Pojo.SessionStoreFolder;
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.FileContent;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.DriveScopes;
+import com.google.api.services.drive.model.FileList;
 import org.springframework.stereotype.Service;
 
 import javax.mail.*;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.MimeBodyPart;
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static by.maevskiy.springangular.changemymail.util.Constant.hosts;
@@ -22,6 +32,12 @@ import static java.util.Objects.nonNull;
 
 @Service
 public class MailServiceImpl implements MailService {
+    private static final String APPLICATION_NAME = "Google Drive API Java Quickstart";
+    private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+    private static final String TOKENS_DIRECTORY_PATH = "tokens";
+    private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);
+    private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
+
     @Override
     public List<MailFolder> getAllFolders(Store store) {
         Folder[] folders;
@@ -59,11 +75,11 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public void saveFile(List<Message> messages, String filePath, String fileNamePattern, String action) {
+    public void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move) {
         for (Message msg : messages) {
             try {
                 if (msg.getContentType().contains("multipart")) {
-                    safeFileOnLaptop(msg, filePath, fileNamePattern, action);
+                    saveFileTo(msg, filePath, fileNamePattern, action, move);
                 }
             } catch (AddressException e) {
                 e.printStackTrace();
@@ -76,11 +92,13 @@ public class MailServiceImpl implements MailService {
     }
 
     private void setFlag(Message message, String action) throws MessagingException {
-        if (action.equals("delete") || action.equals("basket")) {
-            message.setFlag(Flags.Flag.DELETED, true);
-        }
-        if (action.equals("read")) {
-            message.setFlag(Flags.Flag.SEEN, true);
+        if (nonNull(action)) {
+            if (action.equals("delete") || action.equals("basket")) {
+                message.setFlag(Flags.Flag.DELETED, true);
+            }
+            if (action.equals("read")) {
+                message.setFlag(Flags.Flag.SEEN, true);
+            }
         }
     }
 
@@ -127,7 +145,7 @@ public class MailServiceImpl implements MailService {
 
     @Override
     public String getProtocol(String action) {
-        if (action.equals("delete")) {
+        if (nonNull(action) && action.equals("delete")) {
             return "pop3";
         } else {
             return "imap";
@@ -191,7 +209,7 @@ public class MailServiceImpl implements MailService {
         return myFolders;
     }
 
-    private void safeFileOnLaptop(Message msg, String filePath, String namePattern, String action) {
+    private void saveFileTo(Message msg, String filePath, String namePattern, String action, String move) {
         try {
             Multipart multiPart = (Multipart) msg.getContent();
             for (int j = 0; j < multiPart.getCount(); j++) {
@@ -199,7 +217,15 @@ public class MailServiceImpl implements MailService {
                 if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) {
                     String fileName = part.getFileName().split("@")[0];
                     if (checkFileName(fileName, namePattern)) {
-                        saveFileOnDisk(part, filePath + fileName, msg, action);
+                        if (nonNull(move) && move.equals("pc")) {
+                            saveFileOnPC(part, filePath + fileName);
+                            setFlag(msg, action);
+                        }
+                        if (nonNull(move) && move.equals("google")) {
+                            saveFileOnPC(part, filePath + fileName);
+                            saveFileOnGoogleDrive(filePath + fileName, fileName);
+                            setFlag(msg, action);
+                        }
                     }
                 }
             }
@@ -208,7 +234,7 @@ public class MailServiceImpl implements MailService {
         }
     }
 
-    private void saveFileOnDisk(MimeBodyPart part, String destFilePath, Message msg, String action) {
+    private void saveFileOnPC(MimeBodyPart part, String destFilePath) {
         try {
             FileOutputStream output = new FileOutputStream(destFilePath);
             InputStream input = part.getInputStream();
@@ -217,7 +243,6 @@ public class MailServiceImpl implements MailService {
             while ((byteRead = input.read(buffer)) != -1) {
                 output.write(buffer, 0, byteRead);
             }
-            setFlag(msg, action);
             output.close();
         } catch (MessagingException e) {
             e.printStackTrace();
@@ -227,6 +252,73 @@ public class MailServiceImpl implements MailService {
             System.out.println("IOException");
         }
     }
+
+    private void saveFileOnGoogleDrive(String destFilePath, String fileName) {
+        /**
+         * Creates an authorized Credential object.
+         * @param HTTP_TRANSPORT The network HTTP Transport.
+         * @return An authorized Credential object.
+         * @throws IOException If the credentials.json file cannot be found.
+         */
+        // Build a new authorized API client service.
+        final NetHttpTransport HTTP_TRANSPORT;
+        try {
+            HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+
+            Drive service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+                    .setApplicationName(APPLICATION_NAME)
+                    .build();
+            // Print the names and IDs for up to 10 files.
+            FileList result = service.files().list()
+                    .setPageSize(10)
+                    .setFields("nextPageToken, files(id, name)")
+                    .execute();
+            List<com.google.api.services.drive.model.File> files = result.getFiles();
+            if (files == null || files.isEmpty()) {
+                System.out.println("No files found.");
+            } else {
+                System.out.println("Files:");
+                for (com.google.api.services.drive.model.File file : files) {
+                    System.out.printf("%s (%s)\n", file.getName(), file.getId());
+                }
+            }
+            String folderId = "1x4mgTmyqSNCPQc_nrFn5c5pzMj46tYLK";
+
+            com.google.api.services.drive.model.File fileMetadata = new com.google.api.services.drive.model.File();
+            fileMetadata.setName(fileName);
+            fileMetadata.setParents(Collections.singletonList(folderId));
+            java.io.File filePath = new java.io.File(destFilePath);
+            FileContent mediaContent = new FileContent("image/jpeg", filePath);
+            System.out.println("file name: " + fileName);
+            com.google.api.services.drive.model.File file = service.files().create(fileMetadata, mediaContent)
+                    .setFields("id, parents")
+                    .execute();
+            System.out.println("File ID: " + file.getId());
+        } catch (GeneralSecurityException e) {
+            System.out.println("generalExcption");
+        } catch (IOException e) {
+            System.out.println("IOExcption");
+        }
+    }
+
+    private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
+        // Load client secrets.
+        InputStream in = MailServiceImpl.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+        if (isNull(in)) {
+            System.out.println("Resource not found: " + CREDENTIALS_FILE_PATH);
+        }
+        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+
+        // Build flow and trigger user authorization request.
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
+                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+                .setAccessType("offline")
+                .build();
+        LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+        return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+    }
+
 
     private boolean checkFileName(String fileName, String namePattern) {
         if (isNull(namePattern) || namePattern.trim().isEmpty()) {
