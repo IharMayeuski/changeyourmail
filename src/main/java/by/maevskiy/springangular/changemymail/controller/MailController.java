@@ -7,6 +7,8 @@ import by.maevskiy.springangular.changemymail.service.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.mail.Session;
+import javax.mail.Store;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,17 +27,26 @@ public class MailController {
 
     @PostMapping(value = "/folders")
     public List<MailFolderDTO> findAll(@RequestBody Map<String, String> namePass) {
-        List<MailFolder> mailFolders = mailService.getAllFolders(
-                namePass.get("name"),
-                namePass.get("pass"),
-                "pop3"
-        );
+//        final String PROTOCOL = "pop3";
+        final String PROTOCOL = "imap";
+
+        String password =  namePass.get("pass");
+        String email = namePass.get("name");
+
+        Session session = mailService.getSession(email, PROTOCOL);
+        Store store = mailService.getStore(session, email, password, PROTOCOL);
+
+        List<MailFolder> mailFolders = mailService.getAllFolders(store);
         List<MailFolderDTO> mailFolderDTOS = new ArrayList<>();
         if (nonNull(mailFolders)) {
-            for (MailFolder mailFolder : mailFolders) {
-                mailFolderDTOS.add(new MailFolderDTO(mailFolder.getFolder().getName(), mailFolder.getMailQuantity()));
-            }
+            mailFolders.forEach(mailFolder ->
+                    mailFolderDTOS.add(new MailFolderDTO(
+                            mailFolder.getFolder().getName(),
+                            mailFolder.getMailQuantity()
+                    ))
+            );
         }
+        mailService.closeSessionStoreFolder(session, store, mailFolders);
         return mailFolderDTOS;
     }
 }
