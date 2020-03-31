@@ -16,12 +16,15 @@ import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.FileList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import javax.mail.*;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.MimeBodyPart;
 import java.io.*;
+import java.lang.invoke.MethodHandles;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,6 +41,8 @@ public class MailServiceImpl implements MailService {
     private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
     @Override
     public List<MailFolder> getAllFolders(Store store) {
         Folder[] folders;
@@ -47,12 +52,12 @@ public class MailServiceImpl implements MailService {
                 try {
                     folder.open(Folder.READ_WRITE);
                 } catch (MessagingException e) {
-                    System.out.println("MessageException");
+                    LOGGER.info("MessageException");
                 }
             }
             return getMailFolders(folders);
         } catch (MessagingException ex) {
-            System.out.println("Could not connect to the message store");
+            LOGGER.info("Could not connect to the message store");
         }
         return null;
     }
@@ -68,27 +73,31 @@ public class MailServiceImpl implements MailService {
                     messages.addAll(messageList);
                 }
             } catch (Exception e) {
-                System.out.println("MessageException");
+                LOGGER.info("MessageException");
             }
         }
         return messages;
     }
 
     @Override
-    public void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move) {
+    public void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move, String pathToCredential) {
+        String tempPath = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\" + new Date().getTime() + "\\";
+        new File(filePath).mkdir();
+        new File(tempPath).mkdir();
         for (Message msg : messages) {
             try {
                 if (msg.getContentType().contains("multipart")) {
-                    saveFileTo(msg, filePath, fileNamePattern, action, move);
+                    saveFileTo(msg, filePath, fileNamePattern, action, move, tempPath, pathToCredential);
                 }
             } catch (AddressException e) {
-                e.printStackTrace();
+                LOGGER.info(e.getMessage());
             } catch (NoSuchProviderException ex) {
-                System.out.println("No provider for protocol");
+                LOGGER.info("No provider for protocol");
             } catch (MessagingException ex) {
-                System.out.println("Could not connect to the message store");
+                LOGGER.info("Could not connect to the message store");
             }
         }
+        new File(tempPath).delete();
     }
 
     private void setFlag(Message message, String action) throws MessagingException {
@@ -116,9 +125,9 @@ public class MailServiceImpl implements MailService {
             store.connect(email, password);
             return store;
         } catch (NoSuchProviderException e) {
-            e.printStackTrace();
+            LOGGER.info(e.getMessage());
         } catch (MessagingException e) {
-            e.printStackTrace();
+            LOGGER.info(e.getMessage());
         }
         return null;
     }
@@ -130,7 +139,7 @@ public class MailServiceImpl implements MailService {
                 try {
                     folder.getFolder().close(true);
                 } catch (Exception e) {
-                    System.out.println("Could not close folder/store");
+                    LOGGER.info("Could not close folder/store");
                 }
             }
         }
@@ -138,7 +147,7 @@ public class MailServiceImpl implements MailService {
             try {
                 store.close();
             } catch (MessagingException e) {
-                System.out.println("Could not close folder/store");
+                LOGGER.info("Could not close folder/store");
             }
         }
     }
@@ -209,7 +218,7 @@ public class MailServiceImpl implements MailService {
         return myFolders;
     }
 
-    private void saveFileTo(Message msg, String filePath, String namePattern, String action, String move) {
+    private void saveFileTo(Message msg, String filePath, String namePattern, String action, String move, String tempPath, String pathToCredential) {
         try {
             Multipart multiPart = (Multipart) msg.getContent();
             for (int j = 0; j < multiPart.getCount(); j++) {
@@ -222,15 +231,16 @@ public class MailServiceImpl implements MailService {
                             setFlag(msg, action);
                         }
                         if (nonNull(move) && move.equals("google")) {
-                            saveFileOnPC(part, filePath + fileName);
-                            saveFileOnGoogleDrive(filePath + fileName, fileName);
+                            saveFileOnPC(part, tempPath + fileName);
+                            saveFileOnGoogleDrive(tempPath + fileName, fileName, pathToCredential);
+                            deleteFileFromPc(tempPath);
                             setFlag(msg, action);
                         }
                     }
                 }
             }
         } catch (MessagingException | IOException e) {
-            e.printStackTrace();
+            LOGGER.info(e.getMessage());
         }
     }
 
@@ -253,7 +263,7 @@ public class MailServiceImpl implements MailService {
         }
     }
 
-    private void saveFileOnGoogleDrive(String destFilePath, String fileName) {
+    private void saveFileOnGoogleDrive(String destFilePath, String fileName, String pathToCredential) {
         /**
          * Creates an authorized Credential object.
          * @param HTTP_TRANSPORT The network HTTP Transport.
@@ -263,9 +273,10 @@ public class MailServiceImpl implements MailService {
         // Build a new authorized API client service.
         final NetHttpTransport HTTP_TRANSPORT;
         try {
+            String folderId = "1x4mgTmyqSNCPQc_nrFn5c5pzMj46tYLK";
             HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 
-            Drive service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+            Drive service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT, pathToCredential))
                     .setApplicationName(APPLICATION_NAME)
                     .build();
             // Print the names and IDs for up to 10 files.
@@ -275,50 +286,61 @@ public class MailServiceImpl implements MailService {
                     .execute();
             List<com.google.api.services.drive.model.File> files = result.getFiles();
             if (files == null || files.isEmpty()) {
-                System.out.println("No files found.");
+                LOGGER.info("No files found.");
             } else {
                 System.out.println("Files:");
                 for (com.google.api.services.drive.model.File file : files) {
-                    System.out.printf("%s (%s)\n", file.getName(), file.getId());
+                    LOGGER.info("%s (%s)\n", file.getName(), file.getId());
                 }
             }
-            String folderId = "1x4mgTmyqSNCPQc_nrFn5c5pzMj46tYLK";
 
             com.google.api.services.drive.model.File fileMetadata = new com.google.api.services.drive.model.File();
             fileMetadata.setName(fileName);
             fileMetadata.setParents(Collections.singletonList(folderId));
             java.io.File filePath = new java.io.File(destFilePath);
             FileContent mediaContent = new FileContent("image/jpeg", filePath);
-            System.out.println("file name: " + fileName);
+            LOGGER.info("file name: " + fileName);
             com.google.api.services.drive.model.File file = service.files().create(fileMetadata, mediaContent)
                     .setFields("id, parents")
                     .execute();
-            System.out.println("File ID: " + file.getId());
+            LOGGER.info("File ID: " + file.getId());
         } catch (GeneralSecurityException e) {
-            System.out.println("generalExcption");
+            LOGGER.info("generalExcption");
         } catch (IOException e) {
-            System.out.println("IOExcption");
+            LOGGER.info("IOExcption");
         }
     }
 
-    private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
+    private void deleteFileFromPc(String path) {
+        File index = new File(path);
+        String[] entries = index.list();
+        if (nonNull(entries)) {
+            for (String s : entries) {
+                File currentFile = new File(index.getPath(), s);
+                if(currentFile.delete()) {
+                    LOGGER.info("All is ok, file deleted");
+                }
+            }
+        }
+    }
+
+    private Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT, String path) throws IOException {
         // Load client secrets.
-        InputStream in = MailServiceImpl.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+        path = System.getProperty("user.home") + "\\Downloads\\credentials.json";
+        InputStream in = new FileInputStream(path);
         if (isNull(in)) {
-            System.out.println("Resource not found: " + CREDENTIALS_FILE_PATH);
+            LOGGER.info("Resource not found: " + path);
         }
         GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
 
         // Build flow and trigger user authorization request.
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow
+                .Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
                 .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-                .setAccessType("offline")
-                .build();
+                .setAccessType("offline").build();
         LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
-
 
     private boolean checkFileName(String fileName, String namePattern) {
         if (isNull(namePattern) || namePattern.trim().isEmpty()) {
