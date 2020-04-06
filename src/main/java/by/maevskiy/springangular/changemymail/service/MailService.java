@@ -12,7 +12,7 @@ public interface MailService {
 
     List <Message> getAllMessages(List<MailFolder> folders);
 
-    void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move);
+    void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move, String pathToCredential);
 
     Session getSession(String email, String protocol);
 
