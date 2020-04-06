@@ -39,7 +39,6 @@ public class MailServiceImpl implements MailService {
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
     private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);
-    private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -80,14 +79,22 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public void saveFiles(List<Message> messages, String filePath, String fileNamePattern, String action, String move, String pathToCredential) {
+    public void saveFiles(
+            List<Message> messages,
+            String filePath,
+            String fileNamePattern,
+            String action,
+            String move,
+            String pathToCredential,
+            String folderId
+    ) {
         String tempPath = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\" + new Date().getTime() + "\\";
         new File(filePath).mkdir();
         new File(tempPath).mkdir();
         for (Message msg : messages) {
             try {
                 if (msg.getContentType().contains("multipart")) {
-                    saveFileTo(msg, filePath, fileNamePattern, action, move, tempPath, pathToCredential);
+                    saveFileTo(msg, filePath, fileNamePattern, action, move, tempPath, pathToCredential, folderId);
                 }
             } catch (AddressException e) {
                 LOGGER.info(e.getMessage());
@@ -218,7 +225,16 @@ public class MailServiceImpl implements MailService {
         return myFolders;
     }
 
-    private void saveFileTo(Message msg, String filePath, String namePattern, String action, String move, String tempPath, String pathToCredential) {
+    private void saveFileTo(
+            Message msg,
+            String filePath,
+            String namePattern,
+            String action,
+            String move,
+            String tempPath,
+            String pathToCredential,
+            String folderId
+    ) {
         try {
             Multipart multiPart = (Multipart) msg.getContent();
             for (int j = 0; j < multiPart.getCount(); j++) {
@@ -232,7 +248,7 @@ public class MailServiceImpl implements MailService {
                         }
                         if (nonNull(move) && move.equals("google")) {
                             saveFileOnPC(part, tempPath + fileName);
-                            saveFileOnGoogleDrive(tempPath + fileName, fileName, pathToCredential);
+                            saveFileOnGoogleDrive(tempPath + fileName, fileName, pathToCredential, folderId);
                             deleteFileFromPc(tempPath);
                             setFlag(msg, action);
                         }
@@ -263,22 +279,24 @@ public class MailServiceImpl implements MailService {
         }
     }
 
-    private void saveFileOnGoogleDrive(String destFilePath, String fileName, String pathToCredential) {
-        /**
-         * Creates an authorized Credential object.
-         * @param HTTP_TRANSPORT The network HTTP Transport.
-         * @return An authorized Credential object.
-         * @throws IOException If the credentials.json file cannot be found.
-         */
-        // Build a new authorized API client service.
+    private void saveFileOnGoogleDrive(
+            String destFilePath,
+            String fileName,
+            String pathToCredential,
+            String folderId)
+    {
         final NetHttpTransport HTTP_TRANSPORT;
         try {
-            String folderId = "1x4mgTmyqSNCPQc_nrFn5c5pzMj46tYLK";
             HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 
-            Drive service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT, pathToCredential))
-                    .setApplicationName(APPLICATION_NAME)
-                    .build();
+            Drive service = new Drive
+                        .Builder(
+                        HTTP_TRANSPORT,
+                        JSON_FACTORY,
+                        getCredentials(HTTP_TRANSPORT, pathToCredential)
+                        )
+                        .setApplicationName(APPLICATION_NAME)
+                        .build();
             // Print the names and IDs for up to 10 files.
             FileList result = service.files().list()
                     .setPageSize(10)
@@ -290,10 +308,12 @@ public class MailServiceImpl implements MailService {
             } else {
                 System.out.println("Files:");
                 for (com.google.api.services.drive.model.File file : files) {
-                    LOGGER.info("%s (%s)\n", file.getName(), file.getId());
+                    LOGGER.info(file.getName(), file.getId());
                 }
             }
-
+            if (folderId.isEmpty()) {
+                folderId = "1x4mgTmyqSNCPQc_nrFn5c5pzMj46tYLK";
+            }
             com.google.api.services.drive.model.File fileMetadata = new com.google.api.services.drive.model.File();
             fileMetadata.setName(fileName);
             fileMetadata.setParents(Collections.singletonList(folderId));
@@ -325,8 +345,10 @@ public class MailServiceImpl implements MailService {
     }
 
     private Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT, String path) throws IOException {
-        // Load client secrets.
-        path = System.getProperty("user.home") + "\\Downloads\\credentials.json";
+        if (path.isEmpty()) {
+//            path = "/credentials.json";
+            path = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\credentials.json";
+        }
         InputStream in = new FileInputStream(path);
         if (isNull(in)) {
             LOGGER.info("Resource not found: " + path);
