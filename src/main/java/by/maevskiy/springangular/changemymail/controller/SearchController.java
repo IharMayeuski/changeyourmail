@@ -31,13 +31,14 @@ public class SearchController {
         String destFilePath = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\";
         String fileNamePattern = namePassText.get("search");
         String pathToCredential = namePassText.get("credential");
+        String folderId = namePassText.get("googleFolder");
 
         String protocol = mailService.getProtocol(action);
         Session session = mailService.getSession(email, protocol);
         Store store = mailService.getStore(session, email, password, protocol);
         List<MailFolder> mailFolders = mailService.getAllFolders(store);
         List<Message> messages = mailService.getAllMessages(mailFolders);
-        mailService.saveFiles(messages, destFilePath, fileNamePattern, action, moveTo, pathToCredential);
+        mailService.saveFiles(messages, destFilePath, fileNamePattern, action, moveTo, pathToCredential, folderId);
         mailService.closeSessionStoreFolder(session, store, mailFolders);
     }
 }
