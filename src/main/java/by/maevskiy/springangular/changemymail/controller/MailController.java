@@ -1,7 +1,7 @@
 package by.maevskiy.springangular.changemymail.controller;
 
-import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
-import by.maevskiy.springangular.changemymail.Pojo.MailFolderDTO;
+import by.maevskiy.springangular.changemymail.pojo.MailFolder;
+import by.maevskiy.springangular.changemymail.pojo.MailFolderDTO;
 import by.maevskiy.springangular.changemymail.service.MailService;
 
 import org.springframework.beans.factory.annotation.Autowired;

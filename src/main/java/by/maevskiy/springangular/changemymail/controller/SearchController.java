@@ -1,6 +1,6 @@
 package by.maevskiy.springangular.changemymail.controller;
 
-import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
+import by.maevskiy.springangular.changemymail.pojo.MailFolder;
 import by.maevskiy.springangular.changemymail.service.MailService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,9 +25,9 @@ public class SearchController {
     @PostMapping(value = "/search")
     public void saveFilesFromMail(@RequestBody Map<String, String> namePassText) {
         String email = namePassText.get("name");
-        String password =  namePassText.get("pass");
-        String action =  namePassText.get("deleteTo");
-        String moveTo =  namePassText.get("move");
+        String password = namePassText.get("pass");
+        String action = namePassText.get("deleteTo");
+        String moveTo = namePassText.get("move");
         String destFilePath = System.getProperty("user.home") + "\\Downloads\\fileFrom!!!!\\";
         String fileNamePattern = namePassText.get("search");
         String pathToCredential = namePassText.get("credential");

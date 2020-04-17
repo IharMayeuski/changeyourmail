@@ -1,6 +1,6 @@
 package by.maevskiy.springangular.changemymail.service;
 
-import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
+import by.maevskiy.springangular.changemymail.pojo.MailFolder;
 
 import javax.mail.Message;
 import javax.mail.Session;

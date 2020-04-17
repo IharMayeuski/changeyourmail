@@ -1,7 +1,7 @@
 package by.maevskiy.springangular.changemymail.service;
 
-import by.maevskiy.springangular.changemymail.Pojo.HostPortInfo;
-import by.maevskiy.springangular.changemymail.Pojo.MailFolder;
+import by.maevskiy.springangular.changemymail.pojo.HostPortInfo;
+import by.maevskiy.springangular.changemymail.pojo.MailFolder;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
