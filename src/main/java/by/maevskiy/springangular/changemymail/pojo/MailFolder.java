@@ -1,4 +1,4 @@
-package by.maevskiy.springangular.changemymail.Pojo;
+package by.maevskiy.springangular.changemymail.pojo;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

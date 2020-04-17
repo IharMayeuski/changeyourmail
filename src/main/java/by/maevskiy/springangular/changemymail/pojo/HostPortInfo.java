@@ -1,7 +1,6 @@
-package by.maevskiy.springangular.changemymail.Pojo;
+package by.maevskiy.springangular.changemymail.pojo;
 
 import lombok.Data;
-import lombok.Setter;
 
 @Data
 public class HostPortInfo {
